@@ -9,9 +9,9 @@ class camera
 public:
 	camera();
 	~camera();
-	// test hahah 
 	cv::Mat instrisincMatrix;
 	cv::Mat distortionCoeff;
+	cv::Mat extrinsicsMatrix;
 
 private:
 
