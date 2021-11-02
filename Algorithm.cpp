@@ -5,8 +5,8 @@
 vector<vector<cv::Mat>> Algorithm::splitImages(vector<cv::Mat>& images) {
 	vector<vector<cv::Mat>> splitResult;
 	const int maskImageNum = 2;
-	const int grayImageNum = 8;
-	const int sinImageNum = 8;
+	const int grayImageNum = 6;
+	const int sinImageNum = 4;
 	vector<cv::Mat> maskImage, grayImage, sinImage;
 	// The picture projection order is white/black image, gray image, sin image
 	for (size_t i = 0; i < images.size(); i++) {
@@ -24,19 +24,21 @@ vector<vector<cv::Mat>> Algorithm::splitImages(vector<cv::Mat>& images) {
 }
 
 cv::Mat Algorithm::decodeMask(vector<cv::Mat> maskImage, int height, int width) {
-	cv::Mat mask = cv::Mat::zeros(height, width, CV_8UC1);
-	cv::adaptiveThreshold((maskImage[0]-maskImage[1]), mask, 255, 
-							cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 5, 3);
+	cv::Mat mask;
+	cv::Mat white = maskImage[0];
+	cv::Mat black = maskImage[1];
+	cv::Mat sub = white - black;
+	cv::threshold(sub, mask, 0, 1, cv::THRESH_BINARY|cv::THRESH_OTSU);
 	return mask;
 }
 
 cv::Mat Algorithm::decodeWrappedPhase(vector<cv::Mat>& sinImages, cv::Mat& mask, int height, int width) {
-	cv::Mat wrappedPhase = cv::Mat::zeros(height, width, CV_16FC1);
-	cv::Mat numerator = cv::Mat::zeros(height, width, CV_16FC1);
-	cv::Mat denominator = cv::Mat::zeros(height, width, CV_16FC1);
+	cv::Mat wrappedPhase = cv::Mat::zeros(height, width, CV_32FC1);
+	cv::Mat numerator = cv::Mat::zeros(height, width, CV_32FC1);
+	cv::Mat denominator = cv::Mat::zeros(height, width, CV_32FC1);
 	const int sinImageNum = sinImages.size();
-	
 	for (size_t i = 0; i < sinImages.size();i++) {
+		sinImages[i].convertTo(sinImages[i], CV_32FC1);
 		numerator += sinImages[i] * sin(i*2*pi / sinImageNum);
 		denominator += sinImages[i] * cos(i * 2 * pi / sinImageNum);
 	}
@@ -49,17 +51,29 @@ cv::Mat Algorithm::decodeWrappedPhase(vector<cv::Mat>& sinImages, cv::Mat& mask,
 			return;
 		}
 		});
+	wrappedPhase += pi;
+	cv::imwrite("D://projects//structured-light-data//result//wrappedPhase.bmp", wrappedPhase);
 	return wrappedPhase;
 }
 
 cv::Mat Algorithm::decodeGrayCode(vector<cv::Mat>& grayCodeImages, cv::Mat& mask, int height, int width) {
 	// 0-255
 	cv::Mat codeOrder = cv::Mat::zeros(height, width, CV_8UC1);
+	cv::Mat codeTmp = cv::Mat::zeros(height, width, CV_8UC1);
+	const int graySize = grayCodeImages.size();
 	for (size_t i = 0; i < grayCodeImages.size();i++) {
-		cv::adaptiveThreshold(grayCodeImages[i], grayCodeImages[i], 255,
-			cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 5, 3);
-
+		cv::threshold(grayCodeImages[i], grayCodeImages[i], 0, 1, cv::THRESH_BINARY | cv::THRESH_OTSU);
+		cv::bitwise_xor(codeTmp, grayCodeImages[i], codeTmp);
+		codeOrder += codeTmp * pow( 2, graySize - 1 - i);
 	}
-
+	cv::multiply(codeOrder, mask, codeOrder);
+	cv::imwrite("D://projects//structured-light-data//result//codeOrder.bmp", codeOrder);
 	return codeOrder;
+}
+
+cv::Mat Algorithm::decodeUnwrappedPhase(cv::Mat& wrappedPhase, cv::Mat& codeOrder, cv::Mat& mask){
+	codeOrder.convertTo(codeOrder, CV_32FC1);
+	cv::Mat unwrappedPhase = wrappedPhase + 2 * pi * codeOrder;
+	cv::imwrite("D://projects//structured-light-data//result//unwrappedPhase.bmp", unwrappedPhase);
+	return unwrappedPhase;
 }
