@@ -29,6 +29,9 @@ cv::Mat Algorithm::decodeMask(vector<cv::Mat> maskImage, int height, int width) 
 	cv::Mat black = maskImage[1];
 	cv::Mat sub = white - black;
 	cv::threshold(sub, mask, 0, 1, cv::THRESH_BINARY|cv::THRESH_OTSU);
+#ifdef DEBUG
+	cv::imwrite("..//structured-light-data//result//mask.tif", mask);
+#endif // DEBUG
 	return mask;
 }
 
@@ -39,20 +42,22 @@ cv::Mat Algorithm::decodeWrappedPhase(vector<cv::Mat>& sinImages, cv::Mat& mask,
 	const int sinImageNum = sinImages.size();
 	for (size_t i = 0; i < sinImages.size();i++) {
 		sinImages[i].convertTo(sinImages[i], CV_32FC1);
-		numerator += sinImages[i] * sin(i*2*pi / sinImageNum);
+		numerator += sinImages[i] * sin(i * 2 * pi / sinImageNum);
 		denominator += sinImages[i] * cos(i * 2 * pi / sinImageNum);
 	}
 	wrappedPhase.forEach<float>([&numerator, &denominator, &mask](float& val, const int *pos) {
 		if (mask.ptr<uchar>(pos[0])[pos[1]]) {
 			const float numeratorPixel = numerator.ptr<float>(pos[0])[pos[1]];
 			const float denominatorPixel = denominator.ptr<float>(pos[0])[pos[1]];
-			val = -atan2(numeratorPixel, denominatorPixel);
+			val = atan2(-numeratorPixel, denominatorPixel);
 		}else {
 			return;
 		}
 		});
 	wrappedPhase += pi;
-	cv::imwrite("D://projects//structured-light-data//result//wrappedPhase.bmp", wrappedPhase);
+#ifdef DEBUG
+	cv::imwrite("..//structured-light-data//result//wrappedPhase.tif", wrappedPhase);
+#endif // DEBUG
 	return wrappedPhase;
 }
 
@@ -67,13 +72,17 @@ cv::Mat Algorithm::decodeGrayCode(vector<cv::Mat>& grayCodeImages, cv::Mat& mask
 		codeOrder += codeTmp * pow( 2, graySize - 1 - i);
 	}
 	cv::multiply(codeOrder, mask, codeOrder);
-	cv::imwrite("D://projects//structured-light-data//result//codeOrder.bmp", codeOrder);
+#ifdef DEBUG
+	cv::imwrite("..//structured-light-data//result//codeOrder.tif", codeOrder);
+#endif
 	return codeOrder;
 }
 
 cv::Mat Algorithm::decodeUnwrappedPhase(cv::Mat& wrappedPhase, cv::Mat& codeOrder, cv::Mat& mask){
 	codeOrder.convertTo(codeOrder, CV_32FC1);
 	cv::Mat unwrappedPhase = wrappedPhase + 2 * pi * codeOrder;
-	cv::imwrite("D://projects//structured-light-data//result//unwrappedPhase.bmp", unwrappedPhase);
+#ifdef DEBUG
+	cv::imwrite("..//structured-light-data//result//unwrappedPhase.tif", unwrappedPhase);
+#endif // DEBUG
 	return unwrappedPhase;
 }

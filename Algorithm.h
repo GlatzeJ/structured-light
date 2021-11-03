@@ -7,6 +7,8 @@
 #include <opencv2\opencv.hpp>
 
 #define pi 3.1415926
+#define DEBUG true
+
 using namespace std;
 
 namespace Algorithm {
