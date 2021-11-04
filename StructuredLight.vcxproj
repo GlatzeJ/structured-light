@@ -20,11 +20,19 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Algorithm.h" />
+    <ClInclude Include="ApparatusParamsCls.h" />
+    <ClInclude Include="calibration.h" />
+    <ClInclude Include="CalibrationCls.h" />
     <ClInclude Include="cameraParams.h" />
+    <ClInclude Include="FileCls.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Algorithm.cpp" />
+    <ClCompile Include="ApparatusParamsCls.cpp" />
+    <ClCompile Include="calibration.cpp" />
+    <ClCompile Include="CalibrationCls.cpp" />
     <ClCompile Include="cameraParams.cpp" />
+    <ClCompile Include="FileCls.cpp" />
     <ClCompile Include="test.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -74,7 +82,7 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\..\OpenCV420\VS2019\OpenCV_420_Debug.props" />
+    <Import Project="D:\OpenCV420\VS2019\OpenCV_420_Debug.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />

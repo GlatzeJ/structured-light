@@ -7,20 +7,20 @@
 class camera
 {
 public:
-	camera();
-	~camera();
+	// 3x3 Mat CV32F
 	cv::Mat instrisincMatrix;
+	// 1x5 Mat CV32F
 	cv::Mat distortionCoeff;
+	// 3x4 Mat CV32F
 	cv::Mat extrinsicsMatrix;
 
-private:
+	camera();
+	~camera();
+	void setIntrisincParams(cv::Mat instrisinc);
+	void setDistortionCoeff(cv::Mat Dcoff);
+	void setExtrinsicsMatrix(cv::Mat ExtriM);
+
+
 
 };
 
-camera::camera()
-{
-}
-
-camera::~camera()
-{
-}
