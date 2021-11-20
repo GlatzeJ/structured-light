@@ -133,6 +133,7 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 		return res;
 	}
 	int num = m / n;
+
 	std::vector<cv::Mat> wrappingPhase;
 	for (int i = 0; i < num; i++) {
 		std::vector<cv::Mat> temp;
@@ -148,7 +149,7 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 	cv::Mat PH3 = wrappingPhase[2].clone();
 
 
-	cv::Mat PH12 = cv::Mat::zeros(PH1.size(), CV_32FC1);
+    cv::Mat PH12 = cv::Mat::zeros(PH1.rows, PH1.cols, CV_32FC1);
 	PH12.forEach<float>([&PH1, &PH2](float& val, const int* pos) {
 		const float temp = PH2.ptr<float>(pos[0])[pos[1]] - PH1.ptr<float>(pos[0])[pos[1]];
 		if (temp >= 0) val = temp;
@@ -157,14 +158,14 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 
 	
 
-	cv::Mat PH23 = cv::Mat::zeros(PH2.size(), CV_32FC1);
+    cv::Mat PH23 = cv::Mat::zeros(PH2.rows, PH2.cols, CV_32FC1);
 	PH23.forEach<float>([&PH3, &PH2](float& val, const int* pos) {
 		const float temp = PH3.ptr<float>(pos[0])[pos[1]] - PH2.ptr<float>(pos[0])[pos[1]];
 		if (temp >= 0) val = temp;
 		else val = 2 * PI + temp;
 		});
 
-	cv::Mat PH123 = cv::Mat::zeros(PH1.size(), CV_32FC1);
+    cv::Mat PH123 = cv::Mat::zeros(PH1.rows, PH1.cols, CV_32FC1);
 	PH123.forEach<float>([&PH12, &PH23](float& val, const int* pos) {
 		const float temp = PH23.ptr<float>(pos[0])[pos[1]] - PH12.ptr<float>(pos[0])[pos[1]];
 		if (temp >= 0) val = temp;
@@ -179,7 +180,7 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 
 	//解包裹23：求PH23的绝对相位
 	double R = f23 / f123;
-	cv::Mat Nwrap = cv::Mat::zeros(PH123.size(), CV_32FC1);
+    cv::Mat Nwrap = cv::Mat::zeros(PH123.rows, PH123.cols, CV_32FC1);
 	Nwrap.forEach<float>([&PH123, &PH23, &R](float& val, const int* pos) {
 		val = floor(0.5 + (R * PH123.ptr<float>(pos[0])[pos[1]] - PH23.ptr<float>(pos[0])[pos[1]]) / (2 * PI));
 		});
@@ -187,27 +188,26 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 	cv::Mat PH23UnWrap = 2 * PI * Nwrap + PH23;
 
 	R = f2 / f23;
-	cv::Mat Nwrap1 = cv::Mat::zeros(PH23UnWrap.size(), CV_32FC1);
+    cv::Mat Nwrap1 = cv::Mat::zeros(PH23UnWrap.rows, PH23UnWrap.cols, CV_32FC1);
 	Nwrap1.forEach<float>([&PH23UnWrap, &PH2, &R](float& val, const int* pos) {
 		val = floor(0.5 + (R * PH23UnWrap.ptr<float>(pos[0])[pos[1]] - PH2.ptr<float>(pos[0])[pos[1]]) / (2 * PI));
 		});
 	cv::Mat PH2UnWrap = 2 * PI * Nwrap1 + PH2;
 
 	//cv::multiply(PH2UnWrap, mask, PH2UnWrap);
-
 	return PH2UnWrap;
 }
 
 cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 	int n = images.size();
 
-	cv::Mat imgUp = cv::Mat::zeros(images[0].size(), CV_32FC1);
-	cv::Mat imgDown = cv::Mat::zeros(images[0].size(), CV_32FC1);
+    cv::Mat imgUp = cv::Mat::zeros(images[0].rows, images[0].cols, CV_32FC1);
+    cv::Mat imgDown = cv::Mat::zeros(images[0].rows, images[0].cols, CV_32FC1);
 	for (int i = 0; i < images.size(); i++) {
 		imgUp = imgUp + sin(2 * PI * i / n) * images[i];
 		imgDown = imgDown + cos(2 * PI * i / n) * images[i];
 	}
-	cv::Mat res = cv::Mat::zeros(imgUp.size(), CV_32FC1);
+    cv::Mat res = cv::Mat::zeros(imgUp.rows, imgUp.cols, CV_32FC1);
 	res.forEach<float>([&imgUp, &imgDown](float& val, const int* pos) {
 		const float upPixel = imgUp.ptr<float>(pos[0])[pos[1]];
 		const float downPixel = imgDown.ptr<float>(pos[0])[pos[1]] + EPS;
