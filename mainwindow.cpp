@@ -17,7 +17,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-
 void MainWindow::on_pbConnect_clicked()
 {
     QString T;
@@ -35,16 +34,37 @@ void MainWindow::on_pbConnect_clicked()
 
 }
 
-
-
-
 void MainWindow::on_pbReconstruction_clicked()
 {
-
-
     if(ui->rbGray->isChecked()){
         //格雷码重建
-
+        QTime timeWatch;
+        timeWatch.start();
+        string filePath = "../structured-light-data/calibration/SLSParam.txt";
+        camera leftCamera, rightCamera;
+        Algorithm::readParams(leftCamera, rightCamera, filePath);
+        vector<cv::Mat> images;
+        vector<string> imageName;
+        cv::glob("../structured-light-data/graycode/", imageName, false);
+        for (size_t i = 0; i < 12; i++) {
+            cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
+            images.emplace_back(imgTmp);
+        }
+        vector<vector<cv::Mat>> splitRes = Algorithm::splitImages(images);
+        int height = splitRes[0][0].rows, width = splitRes[0][0].cols;
+        cv::Mat mask = Algorithm::decodeMask(splitRes[0], height, width);
+        cv::Mat grayCode = Algorithm::decodeGrayCode(splitRes[1], mask, height, width);
+        cv::Mat wrappedPhase = Algorithm::decodeWrappedPhase(splitRes[2], mask, height, width);
+        cv::Mat unWrappedPhase = Algorithm::decodeUnwrappedPhase(wrappedPhase, grayCode, mask);
+        qDebug()<<"The time of graycode is :" << timeWatch.elapsed() << "ms";
+        cv::Mat res1;
+        unWrappedPhase.convertTo(res1, CV_8UC1);
+        QImage qimg = cvMat2QImage(res1);
+        //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
+        QPixmap Pixmap = QPixmap::fromImage(qimg);
+        Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
+        ui->lbShow->setScaledContents(true);
+        ui->lbShow->setPixmap(Pixmap);
     }
     if(ui->rbMulti->isChecked()){
         //多频外差
@@ -59,32 +79,32 @@ void MainWindow::on_pbReconstruction_clicked()
         vector<string> imageName;
         cv::glob("../structured-light-data/multiFre/", imageName, false);
         for (size_t i = 0; i < 12; i++) {
-             cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
-             imgTmp.convertTo(imgTmp, CV_32FC1);
-             images.emplace_back(imgTmp);
-         }
-
+            cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
+            imgTmp.convertTo(imgTmp, CV_32FC1);
+            images.emplace_back(imgTmp);
+        }
+#ifdef DEBUG
         for(int i = 0; i < imageName.size(); i ++){
             cout << imageName[i] << endl;
             cout << images[i].size()<<endl;
         }
+#endif
 
-         double f1 = 59;
-         double f2 = 64;
-         double f3 = 70;
+        double f1 = 59;
+        double f2 = 64;
+        double f3 = 70;
 
-         cv::Mat mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
+        cv::Mat mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
 
-         cv::Mat res = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
-         cv::Mat res1;
-         res.convertTo(res1, CV_8UC1);
-         QImage qimg = cvMat2QImage(res1);
-         //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
-         QPixmap Pixmap = QPixmap::fromImage(qimg);
-         Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
-         ui->lbShow->setScaledContents(true);
-         ui->lbShow->setPixmap(Pixmap);
-
+        cv::Mat res = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
+        cv::Mat res1;
+        res.convertTo(res1, CV_8UC1);
+        QImage qimg = cvMat2QImage(res1);
+        //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
+        QPixmap Pixmap = QPixmap::fromImage(qimg);
+        Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
+        ui->lbShow->setScaledContents(true);
+        ui->lbShow->setPixmap(Pixmap);
     }
 }
 
@@ -179,10 +199,10 @@ bool MainWindow::PvSelectDeviceC( PvString *aConnectionID )
     {
         cout << endl;
         *aConnectionID = lSelectedDI->GetConnectionID();
-//        if ( aType != NULL )
-//        {
-//            *aType = lSelectedDI->GetType();
-//        }
+        //        if ( aType != NULL )
+        //        {
+        //            *aType = lSelectedDI->GetType();
+        //        }
 
         return true;
     }
@@ -264,10 +284,10 @@ bool MainWindow::PvSelectDeviceC( PvString *aConnectionID )
                             {
                                 cout << endl;
                                 *aConnectionID = lDI->GetConnectionID();
-//                                if ( aType != NULL )
-//                                {
-//                                    *aType = lDI->GetType();
-//                                }
+                                //                                if ( aType != NULL )
+                                //                                {
+                                //                                    *aType = lDI->GetType();
+                                //                                }
 
                                 return true;
                             }

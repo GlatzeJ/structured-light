@@ -6,11 +6,12 @@
 #include <opencv2\highgui\highgui.hpp>
 #include <opencv2\opencv.hpp>
 #include <fstream>
+#include <QTime>
 
 #include "cameraParams.h"
+#include "utils.h"
 
 #define EPS 0
-#define DEBUG true
 #define PI 3.1415926
 using namespace std;
 
@@ -23,7 +24,7 @@ namespace Algorithm {
 	
 	cv::Mat decodeGrayCode(vector<cv::Mat>& grayCodeImages, cv::Mat& mask, int height, int width);
 
-	cv::Mat decodeUnwrappedPhase(cv::Mat& sinImages, cv::Mat& grayCodeImages, cv::Mat& mask);
+    cv::Mat decodeUnwrappedPhase(cv::Mat& wrappedPhase, cv::Mat& codeOrder, cv::Mat& mask);
 
 	cv::Mat multiHeterodyne(std::vector<cv::Mat>& images, double f1, double f2, double f3, int n, cv::Mat& mask);
 

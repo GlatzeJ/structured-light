@@ -87,11 +87,12 @@ cv::Mat Algorithm::decodeWrappedPhase(vector<cv::Mat>& sinImages, cv::Mat& mask,
 			const float numeratorPixel = numerator.ptr<float>(pos[0])[pos[1]];
 			const float denominatorPixel = denominator.ptr<float>(pos[0])[pos[1]];
 			val = atan2(-numeratorPixel, denominatorPixel);
+            if(val < 0)
+                val += 2*PI;
 		}else {
 			return;
 		}
-		});
-	wrappedPhase += PI;
+        });
 #ifdef DEBUG
 	cv::imwrite("..//structured-light-data//result//wrappedPhase.tif", wrappedPhase);
 #endif // DEBUG
@@ -156,8 +157,6 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 		else val = 2 * PI + temp;
 		});
 
-	
-
     cv::Mat PH23 = cv::Mat::zeros(PH2.rows, PH2.cols, CV_32FC1);
 	PH23.forEach<float>([&PH3, &PH2](float& val, const int* pos) {
 		const float temp = PH3.ptr<float>(pos[0])[pos[1]] - PH2.ptr<float>(pos[0])[pos[1]];
@@ -172,7 +171,6 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 		else val = 2 * PI + temp;
 		});
 	
-
 	//ÆµÂÊ²î
 	double f12 = f2 - f1;
 	double f23 = f3 - f2;
@@ -214,7 +212,6 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 		val = -atan2(upPixel, downPixel);
 		});
 
-	
 	return res;
 }
 

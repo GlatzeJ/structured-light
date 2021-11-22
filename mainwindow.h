@@ -25,6 +25,8 @@
 #include <QPixmap>
 #include <QImage>
 #include <qstring.h>
+#include <QTime>
+#include <QtDebug>
 
 #include <time.h>
 

@@ -23,7 +23,8 @@ SOURCES += \
     calibration.cpp \
     cameraParams.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    utils.cpp
 
 HEADERS += \
     Algorithm.h \
@@ -32,7 +33,8 @@ HEADERS += \
     FileCls.h \
     calibration.h \
     cameraParams.h \
-    mainwindow.h
+    mainwindow.h \
+    utils.h
 
 FORMS += \
     mainwindow.ui
