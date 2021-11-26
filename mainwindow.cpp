@@ -22,18 +22,16 @@ void MainWindow::on_pbConnect_clicked()
     QString T;
     T = ui->pbConnect->text();
     if(T == "连接相机"){
-        mDevice = ConnectDevice();
-        if(mDevice == nullptr) return;
+        jai.Run();
+        if(jai.mDevice == nullptr) return;
         ui->pbConnect->setText("断开相机");
     }
     else{
-        Disconnect();
+        jai.TearDown( true );
         ui->pbConnect->setText("连接相机");
     }
-    //std::cout << T.toStdString() << std::endl;
 
 }
-
 void MainWindow::on_pbReconstruction_clicked()
 {
     if(ui->rbGray->isChecked()){
@@ -75,6 +73,7 @@ void MainWindow::on_pbReconstruction_clicked()
         std::cout << leftCamera.instrisincMatrix << std::endl;
         std::cout << leftCamera.distortionCoeff<< std::endl;
         std::cout << rightCamera.extrinsicsMatrix << std::endl;
+        /*
         vector<cv::Mat> images;
         vector<string> imageName;
         cv::glob("../structured-light-data/multiFre/", imageName, false);
@@ -347,6 +346,38 @@ void MainWindow::Disconnect(){
 
 }
 
+        */
+        std::cout << jai.images.size() << std::endl;
+        for(int i = 0; i< 12; i++)
+        {
+            images.push_back(jai.images[i]);
+            string path = to_string(i) + ".bmp";
+            imwrite(path,images[i]);
+
+            images[i].convertTo(images[i], CV_32FC1);
+
+        }
+        std::cout << images.size() << std::endl;
+
+         double f1 = 29;
+         double f2 = 34;
+         double f3 = 40;
+
+         cv::Mat mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
+
+         cv::Mat res = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
+         cv::Mat res1;
+         res.convertTo(res1, CV_8UC1);
+         QImage qimg = cvMat2QImage(res1);
+         //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
+         QPixmap Pixmap = QPixmap::fromImage(qimg);
+         Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
+         ui->lbShow->setScaledContents(true);
+         ui->lbShow->setPixmap(Pixmap);
+
+    }
+}
+
 //Mat 转 Qimage
 QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
 {
@@ -394,3 +425,76 @@ QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
 }
 
 
+
+void MainWindow::on_pushButton_6_clicked()
+{
+    /*
+    PvBuffer *lBuffer = NULL;
+    PvResult lOperationResult;
+
+    // Retrieve next buffer
+    PvResult lResult = jai.lPipeline->RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+    std::cout << "111" << std::endl;
+    if ( lResult.IsOK() )
+    {
+        std::cout << "112" << std::endl;
+        if ( lOperationResult.IsOK() )
+        {
+            std::cout << "113" << std::endl;
+            PvPayloadType lType;
+            //
+            // We now have a valid buffer. This is where you would typically process the buffer.
+            // -----------------------------------------------------------------------------------------
+            // If the buffer contains an image, display width and height.
+            uint32_t lWidth = 0, lHeight = 0;
+            lType = lBuffer->GetPayloadType();
+            if ( lType == PvPayloadTypeImage )
+            {
+                std::cout << "114" << std::endl;
+                // Get image specific buffer interface.
+                PvImage *lImage = lBuffer->GetImage();
+
+                // Read width, height.
+                lWidth = lImage->GetWidth();
+                lHeight = lImage->GetHeight();
+                std::cout << "115" << std::endl;
+                std::cout << "  W: " << dec << lWidth << " H: " << lHeight;
+                lImage->Alloc(lWidth, lHeight, PvPixelMono16);
+                // Get image data pointer so we can pass it to CV::MAT container
+                unsigned char *img = lImage->GetDataPointer();
+                // Copy/convert Pleora Vision image pointer to cv::Mat container
+                cv::Mat lframe((int)lHeight, (int)lWidth, CV_16U, (int*)img, cv::Mat::AUTO_STEP);
+                lframe.convertTo(lframe, CV_8UC1);
+
+                cv::imwrite("1.bmp", lframe);
+
+            }
+            else {
+                std::cout << " (buffer does not contain image)";
+            }
+        }
+        // Release the buffer back to the pipeline
+        jai.lPipeline->ReleaseBuffer( lBuffer );
+    }
+    */
+}
+
+void MainWindow::on_pbProject_clicked()
+{
+    dlp.test();
+    /*
+    if(!dlp.Connect())
+    {
+        std::cout << "dlp is none" << std::endl;
+        return;
+    }
+    if(!dlp.IsConnect())
+    {
+        std::cout << "dlp is disconnect" << std::endl;
+        return;
+    }
+    dlp.setPatternMode();
+    dlp.projectMulti();
+    */
+
+}

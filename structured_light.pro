@@ -15,6 +15,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+
 SOURCES += \
     Algorithm.cpp \
     ApparatusParamsCls.cpp \
@@ -22,19 +23,38 @@ SOURCES += \
     FileCls.cpp \
     calibration.cpp \
     cameraParams.cpp \
+    dlp4500.cpp \
+    jai.cpp \
     main.cpp \
-    mainwindow.cpp \
-    utils.cpp
+    utils.cpp \
+    mainwindow.cpp\
+    DLPControl/dlpc350_BMPParser.cpp \
+    DLPControl/dlpc350_api.cpp \
+    DLPControl/dlpc350_common.cpp \
+    DLPControl/dlpc350_firmware.cpp \
+    DLPControl/dlpc350_usb.cpp
 
 HEADERS += \
     Algorithm.h \
     ApparatusParamsCls.h \
     CalibrationCls.h \
+    DLPControl/Helper.h \
+    DLPControl/dlpc350_BMPParser.h \
+    DLPControl/dlpc350_api.h \
+    DLPControl/dlpc350_common.h \
+    DLPControl/dlpc350_error.h \
+    DLPControl/dlpc350_firmware.h \
+    DLPControl/dlpc350_flashDevice.h \
+    DLPControl/dlpc350_usb.h \
+    DLPControl/dlpc350_version.h \
+    DLPControl/hidapi.h \
     FileCls.h \
     calibration.h \
     cameraParams.h \
-    mainwindow.h \
-    utils.h
+    utils.h \
+    dlp4500.h \
+    jai.h \
+    mainwindow.h
 
 FORMS += \
     mainwindow.ui
@@ -47,7 +67,7 @@ INCLUDEPATH += $$PWD\..\Thirdparty\OpenCV420\include\opencv2
 #INCLUDEPATH += D:\OpenCV420\include\opencv2
 #INCLUDEPATH += D:\OpenCV420\include
 
-
+LIBS += $$PWD\DLPControl\hidapi.lib
 
 LIBS += $$PWD\..\Thirdparty\OpenCV420\lib\Release\opencv_aruco420.lib
 LIBS += $$PWD\..\Thirdparty\OpenCV420\lib\Release\opencv_bgsegm420.lib
