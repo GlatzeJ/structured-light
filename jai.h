@@ -15,6 +15,7 @@
 #include <PvDeviceInfoGEV.h>
 #include <PvDeviceInfoU3V.h>
 #include <PvStreamGEV.h>
+#include <PvImage.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>

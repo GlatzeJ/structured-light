@@ -247,7 +247,7 @@ void DLP4500::test()
     DLPC350_ClearPatLut();
     DLPC350_ClearExpLut();
     DLPC350_SetPatternTriggerMode(1);
-    DLPC350_SetExposure_FramePeriod(500000, 500000);
+    DLPC350_SetExposure_FramePeriod(200000, 200000);
 
     //设置触发输出延时
     DLPC350_SetTrigIn1Delay(1);

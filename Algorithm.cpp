@@ -42,7 +42,7 @@ void Algorithm::readParams(camera& leftCamera, camera& rightCamera, string& file
 vector<vector<cv::Mat>> Algorithm::splitImages(vector<cv::Mat>& images) {
 	vector<vector<cv::Mat>> splitResult;
 	const int maskImageNum = 2;
-	const int grayImageNum = 6;
+    const int grayImageNum = 5;
 	const int sinImageNum = 4;
 	vector<cv::Mat> maskImage, grayImage, sinImage;
 	// The PIcture projection order is white/black image, gray image, sin image
@@ -148,7 +148,7 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 	cv::Mat PH1 = wrappingPhase[0].clone();
 	cv::Mat PH2 = wrappingPhase[1].clone();
 	cv::Mat PH3 = wrappingPhase[2].clone();
-
+    cv::Mat PH11, PH22,PH33;
 
     cv::Mat PH12 = cv::Mat::zeros(PH1.rows, PH1.cols, CV_32FC1);
 	PH12.forEach<float>([&PH1, &PH2](float& val, const int* pos) {
@@ -170,7 +170,7 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 		if (temp >= 0) val = temp;
 		else val = 2 * PI + temp;
 		});
-	
+
 	//ÆµÂÊ²î
 	double f12 = f2 - f1;
 	double f23 = f3 - f2;
@@ -197,11 +197,11 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 }
 
 cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
-	int n = images.size();
-
+    int n = images.size();
     cv::Mat imgUp = cv::Mat::zeros(images[0].rows, images[0].cols, CV_32FC1);
     cv::Mat imgDown = cv::Mat::zeros(images[0].rows, images[0].cols, CV_32FC1);
 	for (int i = 0; i < images.size(); i++) {
+        images[i].convertTo(images[i], CV_32FC1);
 		imgUp = imgUp + sin(2 * PI * i / n) * images[i];
 		imgDown = imgDown + cos(2 * PI * i / n) * images[i];
 	}
@@ -209,9 +209,8 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 	res.forEach<float>([&imgUp, &imgDown](float& val, const int* pos) {
 		const float upPixel = imgUp.ptr<float>(pos[0])[pos[1]];
 		const float downPixel = imgDown.ptr<float>(pos[0])[pos[1]] + EPS;
-		val = -atan2(upPixel, downPixel);
+        val = -atan2(upPixel, downPixel);
 		});
-
 	return res;
 }
 

@@ -51,6 +51,7 @@ private:
     Ui::MainWindow *ui;
     JAI jai;
     DLP4500 dlp;
+
     vector<cv::Mat>images;
 };
 #endif // MAINWINDOW_H
