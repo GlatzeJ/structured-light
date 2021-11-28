@@ -1,8 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-
-
 using namespace std;
 
 MainWindow::MainWindow(QWidget *parent)
@@ -15,6 +13,39 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::widgetShow()
+{
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("D:/projects/pointcloud/code2_guanzi.pcd", *cloud) == -1) //* load the file
+    {
+        PCL_ERROR("Couldn't read file test_pcd.pcd \n");
+        system("PAUSE");
+    }
+
+    //pcl::visualization::CloudViewer viewer("Viewer");
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+    vtkSmartPointer<vtkRenderWindow> renderWindow;
+    vtkSmartPointer<vtkRenderWindowInteractor> renderWindowIt;
+
+    vtkObject::GlobalWarningDisplayOff();
+    viewer =
+         boost::make_shared<pcl::visualization::PCLVisualizer>("3DViewer", false);
+    renderWindow = viewer->getRenderWindow();
+    renderWindowIt = vtkRenderWindowInteractor::New();
+
+    const QRect vtkSize = ui->VTKwidget->geometry();
+    renderWindow->SetSize(vtkSize.right() - vtkSize.left(),
+                          vtkSize.bottom() - vtkSize.top());
+
+    renderWindow->SetParentId((HWND)ui->VTKwidget->winId());
+    renderWindowIt->SetRenderWindow(renderWindow);
+    viewer->createInteractor();
+    renderWindow->Render();
+    viewer->addPointCloud(cloud, "cloud");
+    viewer->resetCamera ();
+    ui->VTKwidget->update ();
 }
 
 void MainWindow::on_pbConnect_clicked()
@@ -34,320 +65,32 @@ void MainWindow::on_pbConnect_clicked()
 }
 void MainWindow::on_pbReconstruction_clicked()
 {
+    string filePath = "../structured-light-data/calibration/SLSParam.txt";
+    camera leftCamera, rightCamera;
+    Algorithm::readParams(leftCamera, rightCamera, filePath);
+
+    cv::Mat mask, unWrappedPhase;
+
     if(ui->rbGray->isChecked()){
         //格雷码重建
         QTime timeWatch;
         timeWatch.start();
-        string filePath = "../structured-light-data/calibration/SLSParam.txt";
-        camera leftCamera, rightCamera;
-        Algorithm::readParams(leftCamera, rightCamera, filePath);
         vector<cv::Mat> images;
         vector<string> imageName;
         cv::glob("../structured-light-data/graycode/", imageName, false);
-        for (size_t i = 0; i < 12; i++) {
+        for (size_t i = 0; i < 11; i++) {
             cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
             images.emplace_back(imgTmp);
         }
         vector<vector<cv::Mat>> splitRes = Algorithm::splitImages(images);
         int height = splitRes[0][0].rows, width = splitRes[0][0].cols;
-        cv::Mat mask = Algorithm::decodeMask(splitRes[0], height, width);
+        mask = Algorithm::decodeMask(splitRes[0], height, width);
         cv::Mat grayCode = Algorithm::decodeGrayCode(splitRes[1], mask, height, width);
         cv::Mat wrappedPhase = Algorithm::decodeWrappedPhase(splitRes[2], mask, height, width);
-        cv::Mat unWrappedPhase = Algorithm::decodeUnwrappedPhase(wrappedPhase, grayCode, mask);
-        qDebug()<<"The time of graycode is :" << timeWatch.elapsed() << "ms";
-        cv::Mat res1;
-        unWrappedPhase.convertTo(res1, CV_8UC1);
-        QImage qimg = cvMat2QImage(res1);
-        //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
-        QPixmap Pixmap = QPixmap::fromImage(qimg);
-        Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
-        ui->lbShow->setScaledContents(true);
-        ui->lbShow->setPixmap(Pixmap);
+        unWrappedPhase = Algorithm::decodeUnwrappedPhase(wrappedPhase, grayCode, mask);
     }
     if(ui->rbMulti->isChecked()){
         //多频外差
-        string filePath = "../structured-light-data/calibration/SLSParam.txt";
-
-        camera leftCamera, rightCamera;
-        Algorithm::readParams(leftCamera, rightCamera, filePath);
-        std::cout << leftCamera.instrisincMatrix << std::endl;
-        std::cout << leftCamera.distortionCoeff<< std::endl;
-        std::cout << rightCamera.extrinsicsMatrix << std::endl;
-        /*
-        vector<cv::Mat> images;
-        vector<string> imageName;
-        cv::glob("../structured-light-data/multiFre/", imageName, false);
-        for (size_t i = 0; i < 12; i++) {
-            cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
-            imgTmp.convertTo(imgTmp, CV_32FC1);
-            images.emplace_back(imgTmp);
-        }
-#ifdef DEBUG
-        for(int i = 0; i < imageName.size(); i ++){
-            cout << imageName[i] << endl;
-            cout << images[i].size()<<endl;
-        }
-#endif
-
-        double f1 = 59;
-        double f2 = 64;
-        double f3 = 70;
-
-        cv::Mat mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
-
-        cv::Mat res = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
-        cv::Mat res1;
-        res.convertTo(res1, CV_8UC1);
-        QImage qimg = cvMat2QImage(res1);
-        //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
-        QPixmap Pixmap = QPixmap::fromImage(qimg);
-        Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
-        ui->lbShow->setScaledContents(true);
-        ui->lbShow->setPixmap(Pixmap);
-    }
-}
-
-//相机连接
-PvDevice* MainWindow::ConnectDevice()
-{
-    PvResult lResult = PvResult::Code::INVALID_PARAMETER;
-
-    // Select device
-    PvString lConnectionID;
-    if ( !PvSelectDeviceC( &lConnectionID ) )
-    {
-        cout << "No device selected." << endl;
-        return NULL;
-    }
-
-    // Creates and connects the device controller based on the selected device.
-    cout << "Connecting to device" << endl;
-    PvDevice *lDevice = PvDevice::CreateAndConnect( lConnectionID, &lResult );
-    if ( ( lDevice == NULL ) || !lResult.IsOK() )
-    {
-        cout << "Unable to connect to device" << endl;
-        return NULL;
-    }
-
-    return lDevice;
-}
-
-bool MainWindow::PvSelectDeviceC( PvString *aConnectionID )
-{
-    PvResult lResult;
-    const PvDeviceInfo *lSelectedDI = NULL;
-    PvSystem lSystem;
-
-    //cout << endl << "Detecting devices." << endl;
-
-    while( 1 )
-    {
-
-        lSystem.Find();
-
-        // Detect, select device.
-        vector<const PvDeviceInfo *> lDIVector;
-        for ( uint32_t i = 0; i < lSystem.GetInterfaceCount(); i++ )
-        {
-            const PvInterface *lInterface = dynamic_cast<const PvInterface *>( lSystem.GetInterface( i ) );
-            if ( lInterface != NULL )
-            {
-                cout << "   " << lInterface->GetDisplayID().GetAscii() << endl;
-                for ( uint32_t j = 0; j < lInterface->GetDeviceCount(); j++ )
-                {
-                    const PvDeviceInfo *lDI = dynamic_cast<const PvDeviceInfo *>( lInterface->GetDeviceInfo( j ) );
-                    if ( lDI != NULL )
-                    {
-                        lDIVector.push_back( lDI );
-                        cout << "[" << ( lDIVector.size() - 1 ) << "]" << "\t" << lDI->GetDisplayID().GetAscii() << endl;
-                    }
-                }
-            }
-        }
-
-        if ( lDIVector.size() == 0)
-        {
-            cout << "No device found!" << endl;
-            return false;
-        }
-
-
-        // Read device selection, optional new IP address.
-        uint32_t lIndex = 0;
-
-        if ( lIndex == lDIVector.size() )
-        {
-            // We abort the selection process.
-            return false;
-        }
-        else if ( lIndex < lDIVector.size() )
-        {
-            // The device is selected
-            lSelectedDI = lDIVector[ lIndex ];
-            break;
-        }
-    }
-
-#ifndef WIN32
-    // Flush the keyboard buffer so subsequent !kbhit() will work
-    PvFlushKeyboard();
-#endif // WIN32
-
-    // If the IP Address valid?
-    if ( lSelectedDI->IsConfigurationValid() )
-    {
-        cout << endl;
-        *aConnectionID = lSelectedDI->GetConnectionID();
-        //        if ( aType != NULL )
-        //        {
-        //            *aType = lSelectedDI->GetType();
-        //        }
-
-        return true;
-    }
-
-    if( ( lSelectedDI->GetType() == PvDeviceInfoTypeUSB ) || ( lSelectedDI->GetType() == PvDeviceInfoTypeU3V ) )
-    {
-        cout << "This device must be connected to a USB 3.0 (SuperSpeed) port." << endl;
-        return false;
-    }
-
-    // Ask the user for a new IP address.
-    cout << "The IP configuration of the device is not valid." << endl;
-    cout << "Which IP address should be assigned to the device?" << endl;
-    cout << ">";
-
-    // Read new IP address.
-    string lNewIPAddress;
-    PV_DISABLE_SIGNAL_HANDLER();
-    cin >> lNewIPAddress;
-    PV_ENABLE_SIGNAL_HANDLER();
-    if ( !lNewIPAddress.length() )
-    {
-        return false;
-    }
-    PvFlushKeyboard();
-
-#ifndef WIN32
-    // Flush the keyboard buffer so subsequent !kbhit() will work
-    PvFlushKeyboard();
-#endif // WIN32
-
-    const PvDeviceInfoGEV* lDeviceGEV = dynamic_cast<const PvDeviceInfoGEV *>( lSelectedDI );
-    if ( lDeviceGEV != NULL )
-    {
-        // Force new IP address.
-        lResult = PvDeviceGEV::SetIPConfiguration( lDeviceGEV->GetMACAddress().GetAscii(), lNewIPAddress.c_str(),
-                                                   lDeviceGEV->GetSubnetMask().GetAscii(), lDeviceGEV->GetDefaultGateway().GetAscii() );
-        if ( !lResult.IsOK() )
-        {
-            cout << "Unable to force new IP address." << endl;
-            return false;
-        }
-    }
-
-    // Wait for the device to come back on the network.
-    int lTimeout;
-    while( 1 )
-    {
-#ifdef _UNIX_
-        if ( gStop )
-        {
-            return false;
-        }
-#endif
-        lTimeout = 10;
-        while( lTimeout )
-        {
-#ifdef _UNIX_
-            if ( gStop )
-            {
-                return false;
-            }
-#endif
-
-            lSystem.Find();
-
-            vector<const PvDeviceInfo *> lDIVector;
-            for ( uint32_t i = 0; i < lSystem.GetInterfaceCount(); i++ )
-            {
-                const PvInterface *lInterface = lSystem.GetInterface( i );
-                for ( uint32_t j = 0; j < lInterface->GetDeviceCount(); j++ )
-                {
-                    if ( lInterface->GetDeviceInfo( j )->GetType() == PvDeviceInfoTypeGEV )
-                    {
-                        const PvDeviceInfoGEV *lDI = dynamic_cast<const PvDeviceInfoGEV*>( lInterface->GetDeviceInfo( j ) );
-                        if ( lDI != NULL )
-                        {
-                            if ( lNewIPAddress == lDI->GetIPAddress().GetAscii() )
-                            {
-                                cout << endl;
-                                *aConnectionID = lDI->GetConnectionID();
-                                //                                if ( aType != NULL )
-                                //                                {
-                                //                                    *aType = lDI->GetType();
-                                //                                }
-
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            PvSleepMs( 1000 );
-
-            lTimeout--;
-        }
-
-        cout << "The device " << lNewIPAddress << " was not located. Do you want to continue waiting? yes or no" << endl;
-        cout << ">";
-
-        string lAnswer;
-        PV_DISABLE_SIGNAL_HANDLER();
-        cin >> lAnswer;
-        PV_ENABLE_SIGNAL_HANDLER();
-        if ( ( lAnswer == "n" ) || ( lAnswer == "no" ) )
-        {
-            break;
-        }
-    }
-
-    cout << endl;
-    return false;
-}
-
-void MainWindow::Disconnect(){
-
-    // Release acquisition state manager
-    if ( mAcquisitionStateManager != NULL )
-    {
-        //delete mAcquisitionStateManager;
-        mAcquisitionStateManager = NULL;
-    }
-
-
-    if ( mDevice != NULL )
-    {
-        PvDevice::Free( mDevice );
-        mDevice = NULL;
-    }
-
-    if ( mPipeline != NULL )
-    {
-        //delete mPipeline;
-        mPipeline = NULL;
-    }
-
-    if ( mStream != NULL )
-    {
-        //PvStream::Free( mStream );
-        mStream = NULL;
-    }
-
-}
-
-        */
-        std::cout << jai.images.size() << std::endl;
         for(int i = 0; i< 12; i++)
         {
             images.push_back(jai.images[i]);
@@ -359,23 +102,21 @@ void MainWindow::Disconnect(){
         }
         std::cout << images.size() << std::endl;
 
-         double f1 = 29;
-         double f2 = 34;
-         double f3 = 40;
+        double f1 = 29;
+        double f2 = 34;
+        double f3 = 40;
 
-         cv::Mat mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
+        mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
 
-         cv::Mat res = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
-         cv::Mat res1;
-         res.convertTo(res1, CV_8UC1);
-         QImage qimg = cvMat2QImage(res1);
-         //QImage img=QImage((const unsigned char*)(frame.data),frame.cols,frame.rows,frame.step,QImage::Format_RGB888);
-         QPixmap Pixmap = QPixmap::fromImage(qimg);
-         Pixmap.scaled(ui->lbShow->size(), Qt::KeepAspectRatio);
-         ui->lbShow->setScaledContents(true);
-         ui->lbShow->setPixmap(Pixmap);
-
+        unWrappedPhase = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
     }
+
+    // 生成点云数据txt，pointCloudTxt
+
+    // 数据转换利用pcl,装换为pointCloudPcd
+
+    // 点云显示
+    widgetShow();
 }
 
 //Mat 转 Qimage

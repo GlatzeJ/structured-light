@@ -42,7 +42,7 @@ void Algorithm::readParams(camera& leftCamera, camera& rightCamera, string& file
 vector<vector<cv::Mat>> Algorithm::splitImages(vector<cv::Mat>& images) {
 	vector<vector<cv::Mat>> splitResult;
 	const int maskImageNum = 2;
-	const int grayImageNum = 6;
+    const int grayImageNum = 5;
 	const int sinImageNum = 4;
 	vector<cv::Mat> maskImage, grayImage, sinImage;
 	// The PIcture projection order is white/black image, gray image, sin image
@@ -215,7 +215,7 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 	return res;
 }
 
-cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& proImg, cv::Mat& R, cv::Mat& t, cv::Mat& k1, cv::Mat& k2, cv::Mat& d1, int freq) {
+cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& R, cv::Mat& t, cv::Mat& k1, cv::Mat& k2, cv::Mat& d1, int freq) {
 	cv::undistort(unwrapImg, unwrapImg, k1, d1);
 
 	cv::Mat T = cv::Mat::zeros(3, 3, CV_32F);

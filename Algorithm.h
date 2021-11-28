@@ -30,7 +30,7 @@ namespace Algorithm {
 
 	cv::Mat unwrappingPhase(std::vector<cv::Mat>& images);
 
-	cv::Mat unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& proImg, cv::Mat& R, cv::Mat& t, cv::Mat& k1,cv::Mat& k2, cv::Mat& d1, int freq);
+    cv::Mat unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& R, cv::Mat& t, cv::Mat& k1,cv::Mat& k2, cv::Mat& d1, int freq);
 
 	void readParams(camera& leftCamera, camera& rightCamera, string& filePath);
 }

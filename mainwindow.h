@@ -7,6 +7,14 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/visualization/cloud_viewer.h>
+#include <vtkRenderWidget.h>
+#include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
+#include <boost/make_shared.hpp>
+
 #include <QPixmap>
 #include <QImage>
 #include <qstring.h>
@@ -34,6 +42,7 @@ public:
 
     QImage cvMat2QImage(const cv::Mat& mat);
 
+    void widgetShow();
 
     ~MainWindow();
 
