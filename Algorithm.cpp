@@ -125,7 +125,7 @@ cv::Mat Algorithm::decodeUnwrappedPhase(cv::Mat& wrappedPhase, cv::Mat& codeOrde
 	return unwrappedPhase;
 }
 
-cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, double f2, double f3, int n, cv::Mat& mask) {
+cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, double f2, double f3, int n) {
 	//f1 f2  f3 为 条纹频率
 	int m = images.size();
 	if (m % n != 0) {
@@ -156,7 +156,9 @@ cv::Mat Algorithm::multiHeterodyne(std::vector<cv::Mat>& images, double f1, doub
 		if (temp >= 0) val = temp;
 		else val = 2 * PI + temp;
 		});
-
+#ifdef DEBUG
+    std::cout << "PH12 is ready" << std::endl;
+#endif
     cv::Mat PH23 = cv::Mat::zeros(PH2.rows, PH2.cols, CV_32FC1);
 	PH23.forEach<float>([&PH3, &PH2](float& val, const int* pos) {
 		const float temp = PH3.ptr<float>(pos[0])[pos[1]] - PH2.ptr<float>(pos[0])[pos[1]];
@@ -202,6 +204,7 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
     cv::Mat imgUp = cv::Mat::zeros(images[0].rows, images[0].cols, CV_32FC1);
     cv::Mat imgDown = cv::Mat::zeros(images[0].rows, images[0].cols, CV_32FC1);
 	for (int i = 0; i < images.size(); i++) {
+          images[i].convertTo(images[i], CV_32FC1);
 		imgUp = imgUp + sin(2 * PI * i / n) * images[i];
 		imgDown = imgDown + cos(2 * PI * i / n) * images[i];
 	}
@@ -216,7 +219,8 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 }
 
 cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& R, cv::Mat& t, cv::Mat& k1, cv::Mat& k2, cv::Mat& d1, int freq) {
-	cv::undistort(unwrapImg, unwrapImg, k1, d1);
+     cv::Mat unsortImg;
+     cv::undistort(unwrapImg, unsortImg, k1, d1);
 
 	cv::Mat T = cv::Mat::zeros(3, 3, CV_32F);
 	T.ptr<float>(0)[1] = -t.ptr<float>(0)[2];
@@ -230,33 +234,72 @@ cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat&
 	cv::transpose(R, R);
 	cv::Mat E = k1 * R * T * k2;
 
+    std::cout << E << std::endl;
+
 	//投影仪的宽
 	int width = 1140;
+    cv::Mat2i underLine;
+    cv::findNonZero(mask, underLine);
+    cv::Mat p1 = cv::Mat::zeros(2, underLine.rows, CV_32FC1);
+    cv::Mat p2 = cv::Mat::zeros(2, underLine.rows, CV_32FC1);
 
-	std::vector<cv::Point2f> p1;
-	std::vector<cv::Point2f> p2;
+    std::cout << "E" << std::endl;
+    std::cout << underLine.rows << "  " << underLine.cols << std::endl;
+    //std::vector<cv::Point2f> p1;
+    //std::vector<cv::Point2f> p2;
+    int index = 0;
+    for(int i = 0; i < unsortImg.rows; i ++)
+    {
+        for(int j = 0; j< unsortImg.cols; j ++)
+        {
+            if (mask.ptr<uchar>(i)[j] == 0) continue;
+            cv::Mat points = (cv::Mat_<float>(1, 3) << i, j, 1);
+            cv::Mat coef = points * E;
 
-	unwrapImg.forEach<float>([&mask, &p1, &p2, &E, &width, &freq](float& val, const int* pos) {
-		if (mask.ptr<uchar>(pos[0])[pos[1]]) {
-			cv::Mat points = (cv::Mat_<float>(1, 3) << pos[0], pos[1], 1);
-			cv::Mat coef = points * E;
-			const float a = coef.ptr<float>(0)[0];
-			const float b = coef.ptr<float>(0)[1];
-			const float c = coef.ptr<float>(0)[2];
+            const float a = coef.ptr<float>(0)[0];
+            const float b = coef.ptr<float>(0)[1];
+            const float c = coef.ptr<float>(0)[2];
 
-			//计算坐标
-			float proY = val * width / (2 * PI * freq);
-			float proX = ((-b * proY) - c) / a;
-			cv::Point2f tmp1;
-			cv::Point2f tmp2;
-			tmp1.x = pos[0]; tmp1.y = pos[1];
-			tmp2.x = proX; tmp2.y = proY;
+            float proY = unwrapImg.ptr<float>(i)[j] * width / (2 * PI * freq);
+            float proX = ((-b * proY) - c) / a;
 
-			p1.push_back(tmp1);
-			p2.push_back(tmp2);
-		}
-		}
-	);
+            p1.ptr<float>(0)[index] = i;
+            p1.ptr<float>(1)[index] = j;
+
+            p2.ptr<float>(0)[index] = proX;
+            p2.ptr<float>(1)[index] = proY;
+            index++;
+        }
+    }
+    std::cout << index << std::endl;
+    /*
+    unsortImg.forEach<float>([&mask, &p1, &p2, &E, &width, &freq](float& val, const int* pos) {
+        if (mask.ptr<uchar>(pos[0])[pos[1]]) {
+            cv::Mat points = (cv::Mat_<float>(1, 3) << pos[0], pos[1], 1);
+
+
+            cv::Mat coef = points * E;
+
+
+
+            const float a = coef.ptr<float>(0)[0];
+            const float b = coef.ptr<float>(0)[1];
+            const float c = coef.ptr<float>(0)[2];
+
+            //std::cout << "a: " << a << " b: " << b << " c:" << c << std::endl;
+            //计算坐标
+            float proY = val * width / (2 * PI * freq);
+            float proX = ((-b * proY) - c) / a;
+            cv::Point2f tmp1;
+            cv::Point2f tmp2;
+            tmp1.x = pos[0]; tmp1.y = pos[1];
+            tmp2.x = proX; tmp2.y = proY;
+
+            p1.push_back(tmp1);
+            p2.push_back(tmp2);
+        }
+    });
+    */
 
 	cv::Mat Tw_ = (cv::Mat_<float>(3, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0);
 	cv::Mat Tp_ = cv::Mat::zeros(3, 4, CV_32F);
@@ -264,7 +307,11 @@ cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat&
 		if (pos[1] == 3) val = t.ptr<float>(pos[0])[0];
 		else val = R.ptr<float>(pos[0])[pos[1]];
 		});
+
 	cv::Mat res;
 	cv::triangulatePoints(Tw_, Tp_, p1, p2, res);
+
+    std::cout << "3D point is finish" << std::endl;
+
 	return res;
 }

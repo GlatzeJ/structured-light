@@ -26,7 +26,7 @@ namespace Algorithm {
 
     cv::Mat decodeUnwrappedPhase(cv::Mat& wrappedPhase, cv::Mat& codeOrder, cv::Mat& mask);
 
-	cv::Mat multiHeterodyne(std::vector<cv::Mat>& images, double f1, double f2, double f3, int n, cv::Mat& mask);
+    cv::Mat multiHeterodyne(std::vector<cv::Mat>& images, double f1, double f2, double f3, int n);
 
 	cv::Mat unwrappingPhase(std::vector<cv::Mat>& images);
 

@@ -18,7 +18,7 @@ MainWindow::~MainWindow()
 void MainWindow::widgetShow()
 {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("D:/projects/pointcloud/code2_guanzi.pcd", *cloud) == -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("E:/Projects/structured-light-data/code2_guanzi.pcd", *cloud) == -1) //* load the file
     {
         PCL_ERROR("Couldn't read file test_pcd.pcd \n");
         system("PAUSE");
@@ -65,22 +65,37 @@ void MainWindow::on_pbConnect_clicked()
 }
 void MainWindow::on_pbReconstruction_clicked()
 {
+    QTime timeWatch;
+    timeWatch.start();
     string filePath = "../structured-light-data/calibration/SLSParam.txt";
     camera leftCamera, rightCamera;
     Algorithm::readParams(leftCamera, rightCamera, filePath);
 
     cv::Mat mask, unWrappedPhase;
+    /*
+    if(jai.images.size() == 0)
+    {
+        std::cerr << "没有图片";
+        return;
+    }
+    */
+
 
     if(ui->rbGray->isChecked()){
         //格雷码重建
-        QTime timeWatch;
-        timeWatch.start();
+
+        /*
         vector<cv::Mat> images;
         vector<string> imageName;
         cv::glob("../structured-light-data/graycode/", imageName, false);
         for (size_t i = 0; i < 11; i++) {
             cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
             images.emplace_back(imgTmp);
+        }
+        */
+        for (size_t i = 0; i < 11; i++)
+        {
+            images.push_back(jai.images[i]);
         }
         vector<vector<cv::Mat>> splitRes = Algorithm::splitImages(images);
         int height = splitRes[0][0].rows, width = splitRes[0][0].cols;
@@ -90,31 +105,95 @@ void MainWindow::on_pbReconstruction_clicked()
         unWrappedPhase = Algorithm::decodeUnwrappedPhase(wrappedPhase, grayCode, mask);
     }
     if(ui->rbMulti->isChecked()){
-        //多频外差
-        for(int i = 0; i< 12; i++)
-        {
-            images.push_back(jai.images[i]);
-            string path = to_string(i) + ".bmp";
-            imwrite(path,images[i]);
+        //多频外差重建
+        string filePath = "../structured-light-data/calibration/SLSParam.txt";
 
-            images[i].convertTo(images[i], CV_32FC1);
+        camera leftCamera, rightCamera;
+        Algorithm::readParams(leftCamera, rightCamera, filePath);
+        std::cout << leftCamera.instrisincMatrix << std::endl;
+        std::cout << leftCamera.distortionCoeff<< std::endl;
+        std::cout << rightCamera.extrinsicsMatrix << std::endl;
 
+        vector<cv::Mat> images;
+        vector<string> imageName;
+        cv::glob("../structured-light-data/multiFre/", imageName, false);
+        vector<cv::Mat>mk;
+        for (size_t i = 0; i < 14; i++) {
+            std::cout << imageName[i] << std::endl;
+            if(i < 2)
+            {
+                cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
+                //imgTmp.convertTo(imgTmp, CV_8UC1);
+                mk.emplace_back(imgTmp);
+            }
+            else
+            {
+                cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
+                //imgTmp.convertTo(imgTmp, CV_32FC1);
+                images.emplace_back(imgTmp);
+            }
         }
+
+        std::cout << mk.size() << std::endl;
         std::cout << images.size() << std::endl;
+        /*
+        vector<cv::Mat>mk;
+        for(int i = 0; i< 14; i++)
+        {
+            if( i < 2)
+            {
+                mk.push_back(jai.images[i]);
+            }
+            else{
+                images.push_back(jai.images[i]);
+                string path = to_string(i) + ".bmp";
+                imwrite(path,images[i]);
+                images[i].convertTo(images[i], CV_8UC1);
+            }
+        }
+        */
+        mask = Algorithm::decodeMask(mk, mk[0].rows, mk[0].cols);
+        std::cout << mask.size() << std::endl;
 
-        double f1 = 29;
-        double f2 = 34;
-        double f3 = 40;
+/*
+        double f1 = 59;
+        double f2 = 64;
+        double f3 = 70;
+        */
+        double f1 = 70;
+        double f2 = 64;
+        double f3 = 59;
+        unWrappedPhase = Algorithm::multiHeterodyne(images, f1, f2, f3, 4);
 
-        mask = cv::Mat::ones(images[0].rows,images[0].cols, CV_32FC1);
-
-        unWrappedPhase = Algorithm::multiHeterodyne(images, f1, f2, f3, 4, mask);
     }
+    //保存图片
+#ifdef DEBUG
+    cv::imwrite("unWrappedPhase.tiff", unWrappedPhase);
+#endif
+
+
+    qDebug()<<"The time of graycode is :" << timeWatch.elapsed() << "ms";
 
     // 生成点云数据txt，pointCloudTxt
+    unWrappedPhase.convertTo(unWrappedPhase, CV_32FC1);
+    cv::Mat R = rightCamera.extrinsicsMatrix.rowRange(0,3).colRange(0,3);
+    cv::Mat t = rightCamera.extrinsicsMatrix.rowRange(0,3).colRange(3,4);
+    std::cout << R << std::endl;
+    std::cout << t << std::endl;
+    //多频外差 频率为64
+    cv::Mat res = Algorithm::unsortTriangulate(mask, unWrappedPhase, R, t, leftCamera.instrisincMatrix, rightCamera.instrisincMatrix, leftCamera.distortionCoeff, 64);
+    std::cout << "rows: " << res.rows << "cols: " << res.cols;
+
 
     // 数据转换利用pcl,装换为pointCloudPcd
-
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    for(int i = 0 ; i < res.cols; i++)
+    {
+        pcl::PointXYZ point(res.ptr<float>(0)[i]/res.ptr<float>(3)[i], res.ptr<float>(1)[i]/res.ptr<float>(3)[i], res.ptr<float>(2)[i]/res.ptr<float>(3)[i]);
+        cloud->push_back(point);
+    }
+    //pcl::PCDWriter writer;
+    //writer.write("res.pcd", *cloud);
     // 点云显示
     widgetShow();
 }
@@ -169,73 +248,12 @@ QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
 
 void MainWindow::on_pushButton_6_clicked()
 {
-    /*
-    PvBuffer *lBuffer = NULL;
-    PvResult lOperationResult;
 
-    // Retrieve next buffer
-    PvResult lResult = jai.lPipeline->RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
-    std::cout << "111" << std::endl;
-    if ( lResult.IsOK() )
-    {
-        std::cout << "112" << std::endl;
-        if ( lOperationResult.IsOK() )
-        {
-            std::cout << "113" << std::endl;
-            PvPayloadType lType;
-            //
-            // We now have a valid buffer. This is where you would typically process the buffer.
-            // -----------------------------------------------------------------------------------------
-            // If the buffer contains an image, display width and height.
-            uint32_t lWidth = 0, lHeight = 0;
-            lType = lBuffer->GetPayloadType();
-            if ( lType == PvPayloadTypeImage )
-            {
-                std::cout << "114" << std::endl;
-                // Get image specific buffer interface.
-                PvImage *lImage = lBuffer->GetImage();
-
-                // Read width, height.
-                lWidth = lImage->GetWidth();
-                lHeight = lImage->GetHeight();
-                std::cout << "115" << std::endl;
-                std::cout << "  W: " << dec << lWidth << " H: " << lHeight;
-                lImage->Alloc(lWidth, lHeight, PvPixelMono16);
-                // Get image data pointer so we can pass it to CV::MAT container
-                unsigned char *img = lImage->GetDataPointer();
-                // Copy/convert Pleora Vision image pointer to cv::Mat container
-                cv::Mat lframe((int)lHeight, (int)lWidth, CV_16U, (int*)img, cv::Mat::AUTO_STEP);
-                lframe.convertTo(lframe, CV_8UC1);
-
-                cv::imwrite("1.bmp", lframe);
-
-            }
-            else {
-                std::cout << " (buffer does not contain image)";
-            }
-        }
-        // Release the buffer back to the pipeline
-        jai.lPipeline->ReleaseBuffer( lBuffer );
-    }
-    */
 }
 
 void MainWindow::on_pbProject_clicked()
 {
+    std::vector<cv::Mat>().swap(jai.images);
+    std::vector<cv::Mat>().swap(images);
     dlp.test();
-    /*
-    if(!dlp.Connect())
-    {
-        std::cout << "dlp is none" << std::endl;
-        return;
-    }
-    if(!dlp.IsConnect())
-    {
-        std::cout << "dlp is disconnect" << std::endl;
-        return;
-    }
-    dlp.setPatternMode();
-    dlp.projectMulti();
-    */
-
 }
