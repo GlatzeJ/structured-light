@@ -17,21 +17,13 @@ MainWindow::~MainWindow()
 
 void MainWindow::widgetShow(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
 {
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-//    if (pcl::io::loadPCDFile<pcl::PointXYZ>("E:/Projects/structured-light-data/code2_guanzi.pcd", *cloud) == -1) //* load the file
-//    {
-//        PCL_ERROR("Couldn't read file test_pcd.pcd \n");
-//        system("PAUSE");
-//    }
-
-    //pcl::visualization::CloudViewer viewer("Viewer");
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
     vtkSmartPointer<vtkRenderWindow> renderWindow;
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowIt;
 
     vtkObject::GlobalWarningDisplayOff();
     viewer =
-         boost::make_shared<pcl::visualization::PCLVisualizer>("3DViewer", false);
+            boost::make_shared<pcl::visualization::PCLVisualizer>("3DViewer", false);
     renderWindow = viewer->getRenderWindow();
     renderWindowIt = vtkRenderWindowInteractor::New();
 
@@ -72,27 +64,9 @@ void MainWindow::on_pbReconstruction_clicked()
     Algorithm::readParams(leftCamera, rightCamera, filePath);
 
     cv::Mat mask, unWrappedPhase;
-    /*
-    if(jai.images.size() == 0)
-    {
-        std::cerr << "没有图片";
-        return;
-    }
-    */
-
 
     if(ui->rbGray->isChecked()){
         //格雷码重建
-
-        /*
-        vector<cv::Mat> images;
-        vector<string> imageName;
-        cv::glob("../structured-light-data/graycode/", imageName, false);
-        for (size_t i = 0; i < 11; i++) {
-            cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
-            images.emplace_back(imgTmp);
-        }
-        */
         for (size_t i = 0; i < 11; i++)
         {
             images.push_back(jai.images[i]);
@@ -110,9 +84,6 @@ void MainWindow::on_pbReconstruction_clicked()
 
         camera leftCamera, rightCamera;
         Algorithm::readParams(leftCamera, rightCamera, filePath);
-        std::cout << "leftCamera.instrisincMatrix:" << leftCamera.instrisincMatrix << std::endl;
-        std::cout << "leftCamera.distortionCoeff:" << leftCamera.distortionCoeff<< std::endl;
-        std::cout << "rightCamera.extrinsicsMatrix:" << rightCamera.extrinsicsMatrix << std::endl;
 
         vector<cv::Mat> images;
         vector<string> imageName;
@@ -139,31 +110,23 @@ void MainWindow::on_pbReconstruction_clicked()
     }
     //保存图片
 #ifdef DEBUG
-    cv::imwrite("unWrappedPhase.tiff", unWrappedPhase);
+    cv::imwrite("..//structured-light-data//result//unWrappedPhase.tif", unWrappedPhase);
 #endif
     qDebug()<<"The time of graycode is :" << timeWatch.elapsed() << "ms";
-
-    // 生成点云数据txt，pointCloudTxt
-//    unWrappedPhase.convertTo(unWrappedPhase, CV_32FC1);
-//    leftCamera.extrinsicsMatrix = (cv::Mat_<float>(3,4) << 1,0,0,0,0,1,0,0,0,0,1,0);
-//    cv::Mat Ac = leftCamera.instrisincMatrix * leftCamera.extrinsicsMatrix;
-//    cv::Mat Ap = rightCamera.instrisincMatrix * rightCamera.extrinsicsMatrix;
-//    std::cout << Ac << std::endl;
-//    std::cout << Ap << std::endl;
-    //多频外差 频率为64
     cv::Mat res = Algorithm::unsortTriangulate(mask, unWrappedPhase, leftCamera.instrisincMatrix,
-                                            rightCamera.instrisincMatrix, rightCamera.extrinsicsMatrix, leftCamera.distortionCoeff, 64);
+                                               rightCamera.instrisincMatrix, rightCamera.extrinsicsMatrix, leftCamera.distortionCoeff, 64);
     // 数据转换利用pcl,装换为pointCloudPcd
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-
 
     for(int i = 0 ; i < res.cols; i++)
     {
         pcl::PointXYZ point(res.ptr<float>(0)[i], res.ptr<float>(1)[i], res.ptr<float>(2)[i]);
         cloud->push_back(point);
     }
+#ifdef DEBUG
     pcl::PCDWriter writer;
     writer.write("res.pcd", *cloud);
+#endif
     // 点云显示
     widgetShow(cloud);
 }

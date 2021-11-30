@@ -23,6 +23,7 @@
 
 #include <time.h>
 
+#include "utils.h"
 #include "Algorithm.h"
 #include "ApparatusParamsCls.h"
 #include "jai.h"
