@@ -42,7 +42,7 @@ public:
 
     QImage cvMat2QImage(const cv::Mat& mat);
 
-    void widgetShow();
+    void widgetShow(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 
     ~MainWindow();
 

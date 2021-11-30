@@ -212,16 +212,47 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 	res.forEach<float>([&imgUp, &imgDown](float& val, const int* pos) {
 		const float upPixel = imgUp.ptr<float>(pos[0])[pos[1]];
 		const float downPixel = imgDown.ptr<float>(pos[0])[pos[1]] + EPS;
-        val = -atan2(upPixel, downPixel) + PI;
+        val = -atan2(upPixel, downPixel);
+        if(val < 0) val +=2*PI;
 		});
 
 	return res;
 }
 
-vector<vector<float>> Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& Ac, cv::Mat& Ap, int freq) {
-    int width = 1140;
+cv::Mat Algorithm::normalize_pixel(cv::Mat& xc, cv::Mat& camerainstrisincMatrix, cv::Mat& distortionCoeff){
+    // xc:2*N, camerainstrisincMatrix:3*3, distortionCoeff:1*5
+    cv::Mat res;
+    const float fx = camerainstrisincMatrix.ptr<float>(0)[0], fy = camerainstrisincMatrix.ptr<float>(1)[1];
+    const float u0 = camerainstrisincMatrix.ptr<float>(0)[2], v0 = camerainstrisincMatrix.ptr<float>(1)[2];
+    const float k1 = distortionCoeff.ptr<float>(0)[0], k2 = distortionCoeff.ptr<float>(0)[1],
+                k3 = distortionCoeff.ptr<float>(0)[2], p1 = distortionCoeff.ptr<float>(0)[3],
+                p2 = distortionCoeff.ptr<float>(0)[4];
+    cv::Mat u = xc.colRange(0, 1).clone(), v = xc.colRange(1,2).clone();
+    u = (u+1-u0)/fx, xc.colRange(0, 1) = u;
+    v = (v+1-v0)/fy, xc.colRange(1, 2) = v;
+    cv::Mat u2, v2;
+    cv::pow(u, 2, u2), cv::pow(v, 2, v2);
+    cv::Mat r2 = u2 + v2;
+    cv::Mat r22, r23;
+    cv::pow(r2, 2, r22), cv::pow(r2, 3, r23);
+    cv::Mat kRadial = 1+k1*r2+k2*r22+k3*r23;
+    cv::Mat delta_x(xc.rows, xc.cols, CV_32F);
+    delta_x.colRange(0, 1) = 2*p1*(u.mul(v))+p2*(r2+2*u2);
+    delta_x.colRange(1, 2) = p1*(r2+2*v2)+2*p2*(u.mul(v));
+    cv::Mat resxUp = xc-delta_x;
+    cv::Mat one = cv::Mat::ones(2,1,CV_32F);
+    cv::transpose(kRadial, kRadial);
+    cv::Mat resxDown = one*kRadial;
+    cv::transpose(resxDown, resxDown);
+    cv::divide(resxUp, resxDown, res);
+    return res;
+}
 
-    vector<vector<float>>dp;
+cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& cameraInstrisincMatrix,
+                                                   cv::Mat& projectorInstrisincMatrix, cv::Mat& extrinsicsMatrix,
+                                                   cv::Mat& distortionCoeff, int freq) {
+    int width = 912;
+    /*
     unwrapImg.forEach<float>([&dp, &Ac, &Ap, &mask, &width, &freq](float& val, const int* pos){
         if(mask.ptr<uchar>(pos[0])[pos[1]])
         {
@@ -231,10 +262,11 @@ vector<vector<float>> Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwra
             cv::Mat A = (cv::Mat_<float>(3,3) << Ac.ptr<float>(0)[0] - Ac.ptr<float>(2)[0] * uc, Ac.ptr<float>(0)[1] - Ac.ptr<float>(2)[1] * uc, Ac.ptr<float>(0)[2] - Ac.ptr<float>(2)[2] * uc,
                                                  Ac.ptr<float>(1)[0] - Ac.ptr<float>(2)[0] * vc, Ac.ptr<float>(1)[1] - Ac.ptr<float>(2)[1] * vc, Ac.ptr<float>(1)[2] - Ac.ptr<float>(2)[2] * vc,
                                                  Ap.ptr<float>(0)[0] - Ap.ptr<float>(2)[0] * up, Ap.ptr<float>(0)[1] - Ap.ptr<float>(2)[1] * up, Ap.ptr<float>(0)[2] - Ap.ptr<float>(2)[2] * up);
-            cv::Mat b = (cv::Mat_<float>(1, 3) << Ac.ptr<float>(2)[3] * uc - Ac.ptr<float>(0)[3],
+            cv::Mat b = (cv::Mat_<float>(3, 1) << Ac.ptr<float>(2)[3] * uc - Ac.ptr<float>(0)[3],
                                                   Ac.ptr<float>(2)[3] * vc - Ac.ptr<float>(1)[3],
                                                   Ap.ptr<float>(2)[3] * up - Ap.ptr<float>(0)[3]);
             cv::Mat res = A.inv() * b;
+            //std::cout << res.size() << std::endl;
             vector<float>tmp(3,0);
             tmp[0] = res.ptr<float>(0)[0];
             tmp[1] = res.ptr<float>(1)[0];
@@ -242,9 +274,33 @@ vector<vector<float>> Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwra
             dp.push_back(tmp);
         }
     });
-
-
-
+    */
+    /*for(int i = 0; i < unwrapImg.rows; i++)
+    {
+        for( int j = 0 ; j < unwrapImg.cols; j++)
+        {
+            if(mask.ptr<uchar>(i)[j])
+            {
+                if(unwrapImg.ptr<float>(i)[j] < 130) continue;
+                float up = unwrapImg.ptr<float>(i)[j] * width / (2 * PI * freq);
+                float uc = float(i);
+                float vc = float(j);
+                cv::Mat A = (cv::Mat_<float>(3,3) << Ac.ptr<float>(0)[0] - Ac.ptr<float>(2)[0] * uc, Ac.ptr<float>(0)[1] - Ac.ptr<float>(2)[1] * uc, Ac.ptr<float>(0)[2] - Ac.ptr<float>(2)[2] * uc,
+                                                     Ac.ptr<float>(1)[0] - Ac.ptr<float>(2)[0] * vc, Ac.ptr<float>(1)[1] - Ac.ptr<float>(2)[1] * vc, Ac.ptr<float>(1)[2] - Ac.ptr<float>(2)[2] * vc,
+                                                     Ap.ptr<float>(0)[0] - Ap.ptr<float>(2)[0] * up, Ap.ptr<float>(0)[1] - Ap.ptr<float>(2)[1] * up, Ap.ptr<float>(0)[2] - Ap.ptr<float>(2)[2] * up);
+                cv::Mat b = (cv::Mat_<float>(3, 1) << Ac.ptr<float>(2)[3] * uc - Ac.ptr<float>(0)[3],
+                                                      Ac.ptr<float>(2)[3] * vc - Ac.ptr<float>(1)[3],
+                                                      Ap.ptr<float>(2)[3] * up - Ap.ptr<float>(0)[3]);
+                cv::Mat res = A.inv() * b;
+                //std::cout << res.size() << std::endl;
+                vector<float>tmp(3,0);
+                tmp[0] = res.ptr<float>(0)[0];
+                tmp[1] = res.ptr<float>(1)[0];
+                tmp[2] = res.ptr<float>(2)[0];
+                dp.push_back(tmp);
+            }
+        }
+    }*/
     /*
     cv::Mat unsortImg;
     cv::undistort(unwrapImg, unsortImg, k1, d1);
@@ -340,5 +396,48 @@ vector<vector<float>> Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwra
 
     std::cout << "3D point is finish" << std::endl;
     */
-    return dp;
+    cv::Scalar totalNum = cv::sum(mask);
+    const float fx = cameraInstrisincMatrix.ptr<float>(0)[0], fy = cameraInstrisincMatrix.ptr<float>(1)[1];
+    const float u0 = cameraInstrisincMatrix.ptr<float>(0)[2], v0 = cameraInstrisincMatrix.ptr<float>(1)[2];
+    cv::Mat xc = cv::Mat::ones(2, totalNum[0], CV_32F);
+    cv::Mat xp = cv::Mat::ones(1, totalNum[0], CV_32F);
+    cv::Mat xyz = cv::Mat::ones(3, totalNum[0], CV_32FC1);
+    const float up0=projectorInstrisincMatrix.ptr<float>(0)[2];
+    const float fp0 = projectorInstrisincMatrix.ptr<float>(0)[0];
+    const float r11=extrinsicsMatrix.ptr<float>(0)[0], r12=extrinsicsMatrix.ptr<float>(0)[1], r13=extrinsicsMatrix.ptr<float>(0)[2];
+    const float r31=extrinsicsMatrix.ptr<float>(2)[0], r32=extrinsicsMatrix.ptr<float>(2)[1], r33=extrinsicsMatrix.ptr<float>(2)[2];
+    const float t1 = extrinsicsMatrix.ptr<float>(0)[3], t3 = extrinsicsMatrix.ptr<float>(2)[3];
+    int num = 0;
+    float molecular, denominator;
+    for(int row=0;row<mask.rows;row++)
+        for(int col=0;col<mask.cols;col++){
+            if(mask.ptr<uchar>(row)[col]){
+                xc.ptr<float>(0)[num] = (col+1-u0)/fx;
+                xc.ptr<float>(1)[num] = (row+1-v0)/fy;
+                xp.ptr<float>(0)[num] = (unwrapImg.ptr<float>(row)[col]*width)/(2*PI*freq);
+                xp.ptr<float>(0)[num] = (xp.ptr<float>(0)[num]-up0)/fp0;
+                molecular = t1 - t3*xp.ptr<float>(0)[num];
+                denominator = xp.ptr<float>(0)[num]*(r31*xc.ptr<float>(0)[num]+r32*xc.ptr<float>(1)[num]+r33)-\
+                        (r11*xc.ptr<float>(0)[num]+r12*xc.ptr<float>(1)[num]+r13);
+                float z = molecular / denominator;
+                xyz.ptr<float>(0)[num] = xc.ptr<float>(0)[num]*z;
+                xyz.ptr<float>(1)[num] = xc.ptr<float>(1)[num]*z;
+                xyz.ptr<float>(2)[num] = z;
+                num++;
+            }
+        }
+//    cv::transpose(xc, xc);
+//    cv::Mat xcNorm = normalize_pixel(xc, cameraInstrisincMatrix, distortionCoeff);
+
+//    xp.forEach<float>([&xcNorm,&r11,&r12,&r13,&r31,&r32,&r33,&t1,&t3,&xyz](float& val, const int* pos){
+//        const float xcu = xcNorm.ptr<float>(0)[pos[1]];
+//        const float xcv = xcNorm.ptr<float>(1)[pos[1]];
+//        const float molecular = t1 - t3*val;
+//        const float denominator = r31*xcu*val+r32*xcv*val+r33*val-(r11*xcu+r12*xcv+r13);
+//        const float z = molecular / denominator;
+//        xyz.ptr<float>(0)[pos[1]] = xcu*z;
+//        xyz.ptr<float>(1)[pos[1]] = xcv*z;
+//        xyz.ptr<float>(2)[pos[1]] = z;
+//    });
+    return xyz;
 }

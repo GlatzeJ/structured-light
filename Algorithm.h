@@ -30,7 +30,12 @@ namespace Algorithm {
 
 	cv::Mat unwrappingPhase(std::vector<cv::Mat>& images);
 
-    vector<vector<float>> unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& Ac, cv::Mat& Ap, int freq);
+    cv::Mat normalize_pixel(cv::Mat& xc, cv::Mat& camerainstrisincMatrix, cv::Mat& distortionCoeff);
+
+    cv::Mat unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& cameraInstrisincMatrix,
+                                            cv::Mat& projectorInstrisincMatrix, cv::Mat& extrinsicsMatrix,
+                                            cv::Mat& distortionCoeff,
+                                            int freq);
 
 	void readParams(camera& leftCamera, camera& rightCamera, string& filePath);
 }

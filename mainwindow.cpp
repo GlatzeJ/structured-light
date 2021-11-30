@@ -15,14 +15,14 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::widgetShow()
+void MainWindow::widgetShow(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
 {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("E:/Projects/structured-light-data/code2_guanzi.pcd", *cloud) == -1) //* load the file
-    {
-        PCL_ERROR("Couldn't read file test_pcd.pcd \n");
-        system("PAUSE");
-    }
+//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+//    if (pcl::io::loadPCDFile<pcl::PointXYZ>("E:/Projects/structured-light-data/code2_guanzi.pcd", *cloud) == -1) //* load the file
+//    {
+//        PCL_ERROR("Couldn't read file test_pcd.pcd \n");
+//        system("PAUSE");
+//    }
 
     //pcl::visualization::CloudViewer viewer("Viewer");
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -110,90 +110,62 @@ void MainWindow::on_pbReconstruction_clicked()
 
         camera leftCamera, rightCamera;
         Algorithm::readParams(leftCamera, rightCamera, filePath);
-        std::cout << leftCamera.instrisincMatrix << std::endl;
-        std::cout << leftCamera.distortionCoeff<< std::endl;
-        std::cout << rightCamera.extrinsicsMatrix << std::endl;
+        std::cout << "leftCamera.instrisincMatrix:" << leftCamera.instrisincMatrix << std::endl;
+        std::cout << "leftCamera.distortionCoeff:" << leftCamera.distortionCoeff<< std::endl;
+        std::cout << "rightCamera.extrinsicsMatrix:" << rightCamera.extrinsicsMatrix << std::endl;
 
         vector<cv::Mat> images;
         vector<string> imageName;
         cv::glob("../structured-light-data/multiFre/", imageName, false);
         vector<cv::Mat>mk;
         for (size_t i = 0; i < 14; i++) {
-            std::cout << imageName[i] << std::endl;
             if(i < 2)
             {
                 cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
-                //imgTmp.convertTo(imgTmp, CV_8UC1);
                 mk.emplace_back(imgTmp);
             }
             else
             {
                 cv::Mat imgTmp = cv::imread(imageName[i], cv::IMREAD_GRAYSCALE);
-                //imgTmp.convertTo(imgTmp, CV_32FC1);
                 images.emplace_back(imgTmp);
             }
         }
-
-        std::cout << mk.size() << std::endl;
-        std::cout << images.size() << std::endl;
-        /*
-        vector<cv::Mat>mk;
-        for(int i = 0; i< 14; i++)
-        {
-            if( i < 2)
-            {
-                mk.push_back(jai.images[i]);
-            }
-            else{
-                images.push_back(jai.images[i]);
-                string path = to_string(i) + ".bmp";
-                imwrite(path,images[i]);
-                images[i].convertTo(images[i], CV_8UC1);
-            }
-        }
-        */
         mask = Algorithm::decodeMask(mk, mk[0].rows, mk[0].cols);
-        std::cout << mask.size() << std::endl;
-
-/*
-        double f1 = 59;
-        double f2 = 64;
-        double f3 = 70;
-        */
+        cv::imwrite("mask.tiff", mask);
         double f1 = 70;
         double f2 = 64;
         double f3 = 59;
         unWrappedPhase = Algorithm::multiHeterodyne(images, f1, f2, f3, 4);
-
     }
     //保存图片
 #ifdef DEBUG
     cv::imwrite("unWrappedPhase.tiff", unWrappedPhase);
 #endif
-
-
     qDebug()<<"The time of graycode is :" << timeWatch.elapsed() << "ms";
 
     // 生成点云数据txt，pointCloudTxt
-    unWrappedPhase.convertTo(unWrappedPhase, CV_32FC1);
-
+//    unWrappedPhase.convertTo(unWrappedPhase, CV_32FC1);
+//    leftCamera.extrinsicsMatrix = (cv::Mat_<float>(3,4) << 1,0,0,0,0,1,0,0,0,0,1,0);
+//    cv::Mat Ac = leftCamera.instrisincMatrix * leftCamera.extrinsicsMatrix;
+//    cv::Mat Ap = rightCamera.instrisincMatrix * rightCamera.extrinsicsMatrix;
+//    std::cout << Ac << std::endl;
+//    std::cout << Ap << std::endl;
     //多频外差 频率为64
-    vector<vector<float>> res = Algorithm::unsortTriangulate(mask, unWrappedPhase, leftCamera.extrinsicsMatrix, rightCamera.extrinsicsMatrix, 64);
-
-
+    cv::Mat res = Algorithm::unsortTriangulate(mask, unWrappedPhase, leftCamera.instrisincMatrix,
+                                            rightCamera.instrisincMatrix, rightCamera.extrinsicsMatrix, leftCamera.distortionCoeff, 64);
     // 数据转换利用pcl,装换为pointCloudPcd
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    for(int i = 0 ; i < res.size(); i++)
+
+
+    for(int i = 0 ; i < res.cols; i++)
     {
-        pcl::PointXYZ point(res[i][0], res[i][1], res[i][2]);
+        pcl::PointXYZ point(res.ptr<float>(0)[i], res.ptr<float>(1)[i], res.ptr<float>(2)[i]);
         cloud->push_back(point);
     }
-
-
     pcl::PCDWriter writer;
     writer.write("res.pcd", *cloud);
     // 点云显示
-    //widgetShow();
+    widgetShow(cloud);
 }
 
 //Mat 转 Qimage
