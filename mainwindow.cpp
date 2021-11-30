@@ -176,26 +176,24 @@ void MainWindow::on_pbReconstruction_clicked()
 
     // 生成点云数据txt，pointCloudTxt
     unWrappedPhase.convertTo(unWrappedPhase, CV_32FC1);
-    cv::Mat R = rightCamera.extrinsicsMatrix.rowRange(0,3).colRange(0,3);
-    cv::Mat t = rightCamera.extrinsicsMatrix.rowRange(0,3).colRange(3,4);
-    std::cout << R << std::endl;
-    std::cout << t << std::endl;
+
     //多频外差 频率为64
-    cv::Mat res = Algorithm::unsortTriangulate(mask, unWrappedPhase, R, t, leftCamera.instrisincMatrix, rightCamera.instrisincMatrix, leftCamera.distortionCoeff, 64);
-    std::cout << "rows: " << res.rows << "cols: " << res.cols;
+    vector<vector<float>> res = Algorithm::unsortTriangulate(mask, unWrappedPhase, leftCamera.extrinsicsMatrix, rightCamera.extrinsicsMatrix, 64);
 
 
     // 数据转换利用pcl,装换为pointCloudPcd
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    for(int i = 0 ; i < res.cols; i++)
+    for(int i = 0 ; i < res.size(); i++)
     {
-        pcl::PointXYZ point(res.ptr<float>(0)[i]/res.ptr<float>(3)[i], res.ptr<float>(1)[i]/res.ptr<float>(3)[i], res.ptr<float>(2)[i]/res.ptr<float>(3)[i]);
+        pcl::PointXYZ point(res[i][0], res[i][1], res[i][2]);
         cloud->push_back(point);
     }
-    //pcl::PCDWriter writer;
-    //writer.write("res.pcd", *cloud);
+
+
+    pcl::PCDWriter writer;
+    writer.write("res.pcd", *cloud);
     // 点云显示
-    widgetShow();
+    //widgetShow();
 }
 
 //Mat 转 Qimage

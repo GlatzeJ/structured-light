@@ -212,15 +212,42 @@ cv::Mat Algorithm::unwrappingPhase(std::vector<cv::Mat>& images) {
 	res.forEach<float>([&imgUp, &imgDown](float& val, const int* pos) {
 		const float upPixel = imgUp.ptr<float>(pos[0])[pos[1]];
 		const float downPixel = imgDown.ptr<float>(pos[0])[pos[1]] + EPS;
-		val = -atan2(upPixel, downPixel);
+        val = -atan2(upPixel, downPixel) + PI;
 		});
 
 	return res;
 }
 
-cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& R, cv::Mat& t, cv::Mat& k1, cv::Mat& k2, cv::Mat& d1, int freq) {
-     cv::Mat unsortImg;
-     cv::undistort(unwrapImg, unsortImg, k1, d1);
+vector<vector<float>> Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat& Ac, cv::Mat& Ap, int freq) {
+    int width = 1140;
+
+    vector<vector<float>>dp;
+    unwrapImg.forEach<float>([&dp, &Ac, &Ap, &mask, &width, &freq](float& val, const int* pos){
+        if(mask.ptr<uchar>(pos[0])[pos[1]])
+        {
+            float up = val * width / (2 * PI * freq);
+            float uc = float(pos[0]-1);
+            float vc = float(pos[1]-1);
+            cv::Mat A = (cv::Mat_<float>(3,3) << Ac.ptr<float>(0)[0] - Ac.ptr<float>(2)[0] * uc, Ac.ptr<float>(0)[1] - Ac.ptr<float>(2)[1] * uc, Ac.ptr<float>(0)[2] - Ac.ptr<float>(2)[2] * uc,
+                                                 Ac.ptr<float>(1)[0] - Ac.ptr<float>(2)[0] * vc, Ac.ptr<float>(1)[1] - Ac.ptr<float>(2)[1] * vc, Ac.ptr<float>(1)[2] - Ac.ptr<float>(2)[2] * vc,
+                                                 Ap.ptr<float>(0)[0] - Ap.ptr<float>(2)[0] * up, Ap.ptr<float>(0)[1] - Ap.ptr<float>(2)[1] * up, Ap.ptr<float>(0)[2] - Ap.ptr<float>(2)[2] * up);
+            cv::Mat b = (cv::Mat_<float>(1, 3) << Ac.ptr<float>(2)[3] * uc - Ac.ptr<float>(0)[3],
+                                                  Ac.ptr<float>(2)[3] * vc - Ac.ptr<float>(1)[3],
+                                                  Ap.ptr<float>(2)[3] * up - Ap.ptr<float>(0)[3]);
+            cv::Mat res = A.inv() * b;
+            vector<float>tmp(3,0);
+            tmp[0] = res.ptr<float>(0)[0];
+            tmp[1] = res.ptr<float>(1)[0];
+            tmp[2] = res.ptr<float>(2)[0];
+            dp.push_back(tmp);
+        }
+    });
+
+
+
+    /*
+    cv::Mat unsortImg;
+    cv::undistort(unwrapImg, unsortImg, k1, d1);
 
 	cv::Mat T = cv::Mat::zeros(3, 3, CV_32F);
 	T.ptr<float>(0)[1] = -t.ptr<float>(0)[2];
@@ -237,7 +264,7 @@ cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat&
     std::cout << E << std::endl;
 
 	//ͶӰ�ǵĿ�
-	int width = 1140;
+
     cv::Mat2i underLine;
     cv::findNonZero(mask, underLine);
     cv::Mat p1 = cv::Mat::zeros(2, underLine.rows, CV_32FC1);
@@ -299,7 +326,7 @@ cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat&
             p2.push_back(tmp2);
         }
     });
-    */
+
 
 	cv::Mat Tw_ = (cv::Mat_<float>(3, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0);
 	cv::Mat Tp_ = cv::Mat::zeros(3, 4, CV_32F);
@@ -312,6 +339,6 @@ cv::Mat Algorithm::unsortTriangulate(cv::Mat& mask, cv::Mat& unwrapImg, cv::Mat&
 	cv::triangulatePoints(Tw_, Tp_, p1, p2, res);
 
     std::cout << "3D point is finish" << std::endl;
-
-	return res;
+    */
+    return dp;
 }
